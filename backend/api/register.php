@@ -54,11 +54,26 @@ try {
     }
     
     // Get the next available position
-    $stmt = $conn->prepare("SELECT MAX(position_x) as max_x, MAX(position_y) as max_y FROM rooms");
+    // Find the last user's initial room (created with user)
+    $stmt = $conn->prepare("
+        SELECT r.position_x, r.position_y 
+        FROM rooms r
+        INNER JOIN users u ON r.user_id = u.id
+        WHERE r.id = (SELECT MIN(id) FROM rooms WHERE user_id = u.id)
+        ORDER BY u.id DESC
+        LIMIT 1
+    ");
     $stmt->execute();
-    $result = $stmt->fetch();
-    $nextX = ($result['max_x'] ?? -1) + 1;
-    $nextY = ($result['max_y'] ?? -1) + 1;
+    $lastUserRoom = $stmt->fetch();
+    
+    if ($lastUserRoom) {
+        $nextX = (int)$lastUserRoom['position_x'] + 1;
+        $nextY = (int)$lastUserRoom['position_y'] + 1;
+    } else {
+        // First user starts at (0, 0)
+        $nextX = 0;
+        $nextY = 0;
+    }
     
     // Create user
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
